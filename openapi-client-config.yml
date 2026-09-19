@@ -1,0 +1,10 @@
+# openapi-python-client configuration.
+#
+# Kavita's openapi.json lists "text/plain" before "application/json" for
+# every response.  Without this override the generator reads such bodies
+# with response.text and feeds the JSON string to Model.from_dict(),
+# which fails at runtime.  Treat these content types as JSON so
+# response.json() is used instead.
+content_type_overrides:
+  text/plain: application/json
+  text/json: application/json
