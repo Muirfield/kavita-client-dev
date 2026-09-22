@@ -1,2 +1,13 @@
 
 openapi-python-client
+pytest
+pyyaml
+schemathesis==4.27.5
+hypothesis==6.168.0
+
+sphinx
+myst-parser
+linkify-it-py
+sphinx-autodoc2
+# sphinx-argparse
+

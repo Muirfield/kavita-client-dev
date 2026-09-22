@@ -1,0 +1,72 @@
+'''Offline tests for the static site generator (docs/TODO-gh-pages.md).'''
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from pages.build_site import build
+
+MINIMAL_REGISTRY = {
+  'fixes': [
+    {'id': 'F1', 'title': 'invite response', 'endpoints': [{'path': '/api/Account/invite', 'method': 'post'}]},
+  ],
+  'quirks': [
+    {
+      'id': 'Q01', 'category': 'fix-dependent', 'status': 'open', 'title': 'invite object',
+      'fix_id': 'F1', 'endpoints': [], 'covered_by': ['tests/integration/test_invite.py'],
+      'schemathesis': 'exclude-nightly',
+      'note': 'upstream issue #4934',
+    },
+  ],
+}
+
+PREVIOUS_JUNIT = '''<testsuites><testsuite name="prev">
+<testcase classname="tests.integration.test_sweep" name="test_x">
+<skipped message="known upstream spec bug still present (Fix 3 (bare string bodies) not applied)" />
+</testcase></testsuite></testsuites>'''
+
+CURRENT_JUNIT = '''<testsuites><testsuite name="cur">
+<testcase classname="tests.integration.test_sweep" name="test_a" />
+<testcase classname="tests.integration.test_sweep" name="test_y"><failure message="boom" /></testcase>
+<testcase classname="tests.integration.test_sweep" name="test_z">
+<skipped message="known upstream spec bug still present (Fix 2 (nullable enums) not applied)" />
+</testcase>
+</testsuite></testsuites>'''
+
+
+def _fixture_root(tmp_path: Path, previous: bool = False) -> Path:
+  (tmp_path / 'reports').mkdir()
+  (tmp_path / 'kavita_quirks.yaml').write_text(
+    json.dumps(MINIMAL_REGISTRY) if False else __import__('yaml').safe_dump(MINIMAL_REGISTRY),
+    encoding='utf-8',
+  )
+  (tmp_path / 'reports' / 'junit.xml').write_text(CURRENT_JUNIT, encoding='utf-8')
+  if previous:
+    (tmp_path / 'reports' / 'junit.previous.xml').write_text(PREVIOUS_JUNIT, encoding='utf-8')
+  return tmp_path
+
+
+def test_build_produces_index_and_status_pages(tmp_path: Path) -> None:
+  root = _fixture_root(tmp_path)
+  build('9.9.9', root=root, out=tmp_path / 'gh-pages')
+  assert (tmp_path / 'gh-pages' / 'index.html').is_file()
+  release = (tmp_path / 'gh-pages' / 'status' / 'release.html').read_text(encoding='utf-8')
+  assert 'F1' in release and 'Q01' in release and 'upstream issue #4934' in release
+  nightly = (tmp_path / 'gh-pages' / 'status' / 'nightly.html').read_text(encoding='utf-8')
+  assert '1 passed' in nightly and '1 failed' in nightly and 'Fix 2' in nightly
+
+
+def test_upstream_fixed_flag_from_previous_junit(tmp_path: Path) -> None:
+  root = _fixture_root(tmp_path, previous=True)
+  build('9.9.9', root=root, out=tmp_path / 'gh-pages')
+  nightly = (tmp_path / 'gh-pages' / 'status' / 'nightly.html').read_text(encoding='utf-8')
+  assert 'Upstream fixed 1 bug(s)' in nightly
+  assert 'test_x' in nightly
+
+
+def test_no_flag_without_previous_junit(tmp_path: Path) -> None:
+  root = _fixture_root(tmp_path, previous=False)
+  build('9.9.9', root=root, out=tmp_path / 'gh-pages')
+  nightly = (tmp_path / 'gh-pages' / 'status' / 'nightly.html').read_text(encoding='utf-8')
+  assert 'No previous report' in nightly

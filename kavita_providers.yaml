@@ -1,0 +1,144 @@
+# Value-provider registry (docs/TODO-schemathesis.md, phase 2).
+#
+# `values` maps spec parameter names (camelCase, as they appear in the
+# OpenAPI document) to keys in the canary stack state's `providers`
+# section, populated by `schemathesis_stack.py --populate`.
+# `static` holds fixed strings applied without a running stack.
+# The hooks module (schemathesis_hooks.py) injects both into generated
+# cases; the canary script re-includes from the Q26/Q27/Q28 buckets any
+# operation whose parameters are fully provider-covered.
+
+values:
+  seriesId: series_id
+  chapterId: chapter_id
+  volumeId: volume_id
+  libraryId: library_id
+  userId: user_id
+  apiKey: api_key
+  query: query
+  tzId: tz_id
+
+static:
+  fileExtension: '.cbz'
+  code: 'en'
+  cronExpression: '0 0 * * *'
+
+# Ops whose parameters are provider-covered but whose semantics the
+# providers cannot fix (Kavita+ gating, pending-user-only state,
+# covers not yet generated, OPDS content negotiation, entity-kind
+# mismatches). The canary subtracts these from the re-include set.
+no-provider:
+  - path: /api/Account/invite-url
+    method: get
+  - path: /api/Account/resend-confirmation-email
+    method: post
+  - path: /api/Book/{chapterId}/book-info
+    method: get
+  - path: /api/Book/{chapterId}/chapters
+    method: get
+  - path: /api/Image/chapter-cover
+    method: get
+  - path: /api/Image/external/chapter
+    method: get
+  - path: /api/Image/external/series
+    method: get
+  - path: /api/Image/external/volume
+    method: get
+  - path: /api/Image/library-cover
+    method: get
+  - path: /api/Image/series-cover
+    method: get
+  - path: /api/Image/user-cover
+    method: get
+  - path: /api/Image/volume-cover
+    method: get
+  - path: /api/Library/scan
+    method: post
+  - path: /api/Library/scan-all
+    method: post
+  - path: /api/Manage/matched-series-counts
+    method: get
+  - path: /api/Opds/{apiKey}/collections
+    method: get
+  - path: /api/Opds/{apiKey}/image
+    method: get
+  - path: /api/Opds/{apiKey}/libraries
+    method: get
+  - path: /api/Opds/{apiKey}/libraries/{libraryId}
+    method: get
+  - path: /api/Opds/{apiKey}/on-deck
+    method: get
+  - path: /api/Opds/{apiKey}/reading-list
+    method: get
+  - path: /api/Opds/{apiKey}/recently-added
+    method: get
+  - path: /api/Opds/{apiKey}/recently-updated
+    method: get
+  - path: /api/Opds/{apiKey}/series/{seriesId}
+    method: get
+  - path: /api/Opds/{apiKey}/series/{seriesId}/volume/{volumeId}
+    method: get
+  - path: /api/Opds/{apiKey}/series/{seriesId}/volume/{volumeId}/chapter/{chapterId}
+    method: get
+  - path: /api/Opds/{apiKey}/smart-filters
+    method: get
+  - path: /api/Opds/{apiKey}/want-to-read
+    method: get
+  - path: /api/Panels/get-progress
+    method: get
+  - path: /api/Plugin/version
+    method: get
+  - path: /api/Reader/continue-point
+    method: get
+  - path: /api/Reader/time-left
+    method: get
+  - path: /api/Reader/time-left-for-chapter
+    method: get
+  - path: /api/Scrobbling/add-hold
+    method: post
+  - path: /api/Scrobbling/next-scrobble-time
+    method: get
+  - path: /api/Search/chapters-by-series
+    method: get
+  - path: /api/Search/series-for-chapter
+    method: get
+  - path: /api/Series/remove-from-on-deck
+    method: post
+  - path: /api/Series/{seriesId}
+    method: get
+  - path: /api/Server/changelog
+    method: get
+  - path: /api/Server/convert-media
+    method: post
+  - path: /api/Tachiyomi/latest-chapter
+    method: get
+  - path: /api/Theme/browse
+    method: get
+  - path: /api/Upload/upload-chapter-cover
+    method: post
+  - path: /api/Upload/upload-series-cover
+    method: post
+  - path: /api/Upload/upload-volume-cover
+    method: post
+  - path: /api/Volume
+    method: delete
+  - path: /api/Volume
+    method: get
+  - path: /api/kavita-plus-audit/entries/series/{seriesId}
+    method: get
+  - path: /api/kavita-plus-audit/failed-scrobble-events
+    method: get
+  - path: /api/kavita-plus-audit/my-stats
+    method: get
+  - path: /api/kavita-plus-audit/stats
+    method: get
+  - path: /api/Series/{seriesId}
+    method: get
+  - path: /api/Series/chapter
+    method: get
+  - path: /api/Series/next-expected
+    method: get
+  - path: /api/Series/series-detail
+    method: get
+  - path: /api/Series/volume
+    method: get

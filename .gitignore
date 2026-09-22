@@ -48,6 +48,8 @@ coverage.xml
 *.cover
 *.py.cover
 .hypothesis/
+junit*.xml
+reports/
 .pytest_cache/
 cover/
 
@@ -216,5 +218,11 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
-kavita-client/
+###########################
+kavita-client
 kavita_*.json
+
+# Build outputs
+gh-pages/
+.schemathesis/
+sphinx/_build/

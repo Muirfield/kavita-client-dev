@@ -1,0 +1,11 @@
+# Schemathesis configuration — the CLI auto-discovers this file.
+#
+# The Kavita server serializes DateTime with 7 fractional seconds
+# (RFC 3339 allows at most 3) and leaks DateTime.MinValue
+# ("0001-01-01T00:00:00") for empty date-times — see the quirks registry
+# (kavita_quirks.yaml, Q29a/Q29b, `runner: lenient-date-time`). Response
+# format validation is therefore off; everything else stays strict.
+hooks = "schemathesis_hooks.py"
+
+[checks.response_schema_conformance]
+validate-formats = false
