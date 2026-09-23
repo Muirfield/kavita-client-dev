@@ -5,9 +5,12 @@ Renders `gh-pages/` from the repo's own artifacts, no framework:
 
 - index.html — links + version stamp + build timestamp
 - status/release.html — the quirks registry (how the release client
-  differs from the published spec)
-- status/nightly.html — the curated junit + canary junit, with the
-  "upstream fixed" flags computed against a previous junit if present
+  differs from the published spec) + the release test run
+  (`reports/junit-release.xml` + `reports/schemathesis-release-junit.xml`)
+- status/nightly.html — the nightly test run
+  (`reports/junit-nightly.xml` + `reports/schemathesis-nightly-junit.xml`),
+  with the "upstream fixed" flags computed against the previous nightly
+  junit (`reports/junit-nightly.previous.xml`) if present
 - docs/ — a copy of the sphinx output (sphinx/_build/html)
 
 Run through ./pys.sh:  pages/build_site.py [--version VERSION]
@@ -61,7 +64,7 @@ def _page(title: str, body: str, stamp: str) -> str:
 '''
 
 
-def registry_page(registry: dict, stamp: str) -> str:
+def registry_body(registry: dict) -> str:
   fixes = registry.get('fixes', [])
   quirks = registry.get('quirks', [])
 
@@ -91,8 +94,6 @@ source of truth for how the release client differs from the published
 OpenAPI document. {len(fixes)} fixes patch the spec before code
 generation; {len(quirks)} quirks document the server behaviors behind
 them ({open_quirks} still open upstream).</p>
-<p>Related upstream discussion:
-<a href="{UPSTREAM_ISSUE}">Kareadita/Kavita#4934</a>.</p>
 <h2>Fixes (applied to the release client)</h2>
 <table>
 <tr><th>Fix</th><th>Title</th><th>Endpoints</th><th>Fields</th></tr>
@@ -105,7 +106,20 @@ them ({open_quirks} still open upstream).</p>
 {''.join(quirk_rows)}
 </table>
 '''
-  return _page('Release status — spec differences', body, stamp)
+  return body
+
+
+def release_page(registry: dict, root: Path, stamp: str) -> str:
+  '''Release status page: the quirks registry plus the release test run.'''
+  reports = root / 'reports'
+  curated = _junit_stats(reports / 'junit-release.xml')
+  canary = _junit_stats(reports / 'schemathesis-release-junit.xml')
+  body = f'''{registry_body(registry)}
+<h2>Release test run</h2>
+{_junit_block('Curated suite (reports/junit-release.xml)', curated)}
+{_junit_block('Schemathesis canary (reports/schemathesis-release-junit.xml)', canary)}
+'''
+  return _page('Release status — spec differences + test run', body, stamp)
 
 
 def _junit_stats(path: Path) -> dict[str, Any]:
@@ -161,9 +175,9 @@ retired.</p>
 
 def nightly_page(root: Path, out: Path, stamp: str) -> str:
   reports = root / 'reports'
-  curated = _junit_stats(reports / 'junit.xml')
-  previous = _junit_stats(reports / 'junit.previous.xml')
-  canary = _junit_stats(reports / 'schemathesis-junit.xml') or _junit_stats(reports / 'schemathesis-nightly-junit.xml')
+  curated = _junit_stats(reports / 'junit-nightly.xml')
+  previous = _junit_stats(reports / 'junit-nightly.previous.xml')
+  canary = _junit_stats(reports / 'schemathesis-nightly-junit.xml')
 
   flags_html = ''
   if curated is not None and previous is not None:
@@ -178,32 +192,36 @@ def nightly_page(root: Path, out: Path, stamp: str) -> str:
       flags_html = '<p>No upstream-fixed flags vs the previous report.</p>'
   else:
     flags_html = (
-      '<p><em>No previous report at reports/junit.previous.xml — copy the '
+      '<p><em>No previous report at reports/junit-nightly.previous.xml — copy the '
       'last run there (the CI job will) to enable upstream-fixed flags.</em></p>')
 
   body = f'''
 {flags_html}
-{_junit_block('Curated suite (reports/junit.xml)', curated)}
-{_junit_block('Schemathesis canary', canary)}
+{_junit_block('Curated suite (reports/junit-nightly.xml)', curated)}
+{_junit_block('Schemathesis canary (reports/schemathesis-nightly-junit.xml)', canary)}
 '''
   return _page('Nightly test status', body, stamp)
 
 
-def build(version: str, root: Path = ROOT, out: Path = OUT) -> None:
+def build(version: str, root: Path = ROOT, out: Path = OUT,
+          docs_from: Path | None = None) -> None:
   stamp = f'kavita-client {esc(version)} — built {time.strftime("%Y-%m-%d %H:%M:%S")}'
   out.mkdir(parents=True, exist_ok=True)
   (out / 'status').mkdir(exist_ok=True)
 
   registry = yaml.safe_load((root / 'kavita_quirks.yaml').read_text(encoding='utf-8'))
-  (out / 'status' / 'release.html').write_text(registry_page(registry, stamp), encoding='utf-8')
+  (out / 'status' / 'release.html').write_text(release_page(registry, root, stamp), encoding='utf-8')
   (out / 'status' / 'nightly.html').write_text(nightly_page(root, out, stamp), encoding='utf-8')
 
   sphinx_docs = out / 'docs'
-  sphinx_html = root / 'sphinx' / '_build' / 'html'
-  if sphinx_html.is_dir():
+  # `docs_from` (CI: the unpacked docs.zip attached to the GitHub Release)
+  # wins over the local sphinx output.
+  docs_source = (docs_from if docs_from is not None and docs_from.is_dir()
+                 else root / 'sphinx' / '_build' / 'html')
+  if docs_source.is_dir():
     if sphinx_docs.exists():
       shutil.rmtree(sphinx_docs)
-    shutil.copytree(sphinx_html, sphinx_docs)
+    shutil.copytree(docs_source, sphinx_docs)
   docs_link = '<li><a href="docs/">API documentation (sphinx)</a></li>' if sphinx_docs.is_dir() else ''
 
   index = f'''<!doctype html>
@@ -213,7 +231,7 @@ def build(version: str, root: Path = ROOT, out: Path = OUT) -> None:
 <h1>kavita-client</h1>
 <p class="meta">{stamp}</p>
 <ul>
-  <li><a href="status/release.html">Release status — spec differences</a></li>
+  <li><a href="status/release.html">Release status — spec differences + test run</a></li>
   <li><a href="status/nightly.html">Nightly test status</a></li>
   <li><a href="https://github.com/Kareadita/Kavita">Kavita (upstream)</a></li>
   {docs_link}
@@ -229,8 +247,12 @@ def main() -> None:
   parser.add_argument('--version', default='dev')
   parser.add_argument('--root', type=Path, default=ROOT)
   parser.add_argument('--out', type=Path, default=None)
+  parser.add_argument('--docs-from', type=Path, default=None,
+                      help='import pre-built API docs from this directory '
+                           '(CI: the unpacked docs.zip from the release)')
   args = parser.parse_args()
-  build(args.version, root=args.root, out=args.out or args.root / 'gh-pages')
+  build(args.version, root=args.root, out=args.out or args.root / 'gh-pages',
+        docs_from=args.docs_from)
 
 
 if __name__ == '__main__':

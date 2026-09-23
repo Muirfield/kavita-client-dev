@@ -1,6 +1,7 @@
 # Web page generation
 
-*Status: generator + Makefile target delivered (2026-09-22); CI wiring remains.*
+*Status: generator + Makefile target delivered (2026-09-22); CI plan wiring
+delivered (2026-09-22); workflow files remain.*
 
 ## Vision
 
@@ -29,9 +30,11 @@ repo:
   and categories, `covered_by`, upstream references such as Q01 →
   Kareadita/Kavita#4934 and Q18a →
   `docs/issue-draft-library-delete-multiple.md`).
-- **Nightly status data**: `reports/junit.xml` (curated suite) and
-  `reports/schemathesis-junit.xml` (canary), written by the Makefile
-  targets in both modes.
+- **Report data (split by line)**: the release and nightly runs write
+  disjoint report sets, so they never overwrite each other:
+  - `reports/junit-release.xml` (curated) + `reports/schemathesis-release-junit.xml` (canary) — release line
+  - `reports/junit-nightly.xml` (curated) + `reports/schemathesis-nightly-junit.xml` (canary) — nightly line
+  - `reports/junit-nightly.previous.xml` — CI handoff for the upstream-fixed flag
 
 ## Design decisions
 
@@ -49,8 +52,13 @@ repo:
    passing* is highlighted — that is the retirement signal the xfail
    machinery exists for, and it deserves prominence, not a green line.
 5. **Deployment**: GitHub Pages via the standard
-   `actions/upload-pages-artifact` + `actions/deploy-pages` pair, emitted
-   by the CI plan's workflows (`docs/TODO-ci-plan.md`). Local preview:
+   `actions/upload-pages-artifact` + `actions/deploy-pages` pair, with a
+   **single deployer** — the nightly workflow's pages job
+   (`docs/TODO-ci-plan.md`, Workflow 2 job C). The release workflow never
+   deploys; it attaches `docs.zip` to the GitHub Release and triggers the
+   nightly workflow so the site refreshes the same day. The nightly pages
+   job imports the docs via `pages/build_site.py --docs-from <docs.zip>`
+   instead of the sphinx copy. Local preview:
    `make gh-pages` + `python -m http.server` in the build dir.
 
 ## Work items
@@ -64,45 +72,55 @@ repo:
     (F1–F10, title, endpoints/fields), the quirk ledger (status,
     category, `covered_by`, notes), links to upstream issues, and the
     explicit "what the release client patches vs the published spec"
-    framing.
-  - `status/nightly.html` — from `reports/junit.xml` +
-    `reports/schemathesis-junit.xml`: pass/fail/xfail tables per module
-    and per check, a legend for the nightly xfail semantics ("green =
-    known upstream bugs still present"), and the upstream-fixed flag.
+    framing — plus the **release test run** section
+    (`reports/junit-release.xml` + `reports/schemathesis-release-junit.xml`).
+  - `status/nightly.html` — from `reports/junit-nightly.xml` +
+    `reports/schemathesis-nightly-junit.xml`: pass/fail/xfail tables per
+    module and per check, a legend for the nightly xfail semantics ("green
+    = known upstream bugs still present"), and the upstream-fixed flag
+    (vs `reports/junit-nightly.previous.xml`).
 - Renders hand-written HTML via string templates; no dependencies beyond
   PyYAML + the stdlib XML parser.
 
 ### A2 — docs embedding + Makefile target
 
-- `make gh-pages`:
+- `make gh-pages` (local preview):
   1. `make sphinx-html`
   2. `./pys.sh pages/build_site.py` (copies the sphinx output to
      `gh-pages/docs/`, generates the status pages).
+- CI uses `pages/build_site.py --docs-from <docs.zip unpacked>` instead,
+  so the published docs are the exact released ones (no regeneration).
 - Local preview documented in the target help text.
 
 ### A3 — CI wiring (`docs/TODO-ci-plan.md`)
 
-- Release workflow: after a green run, `make gh-pages` and upload the
-  artifact; a `pages` job deploys it.
-- Nightly workflow: `make gh-pages` refreshes the nightly page and the
-  tracking issue gets the page link (the existing tracking-issue flow).
+*(Plan wiring delivered 2026-09-22, merged-nightly restructure 2026-09-22;
+the workflow files remain.)*
+
+- Release workflow: after a green run, attach `docs.zip` (sphinx) to the
+  release and trigger the nightly workflow (`gh workflow run`) — it never
+  deploys Pages itself.
+- Nightly workflow (stable + dev lines): both test jobs upload their
+  report artifacts; the pages job downloads them, restores the previous
+  nightly junit, imports the latest release's `docs.zip`, builds the site
+  and deploys it (single deployer).
 - The site deployment is **non-blocking** for the release artifacts.
 
 ### A4 — verification
 
 - Dry-run `pages/build_site.py` against the current `reports/` +
-  registry: the release page lists all 10 fixes and 35 quirks; the
-  nightly page renders the last junit runs; the upstream-fixed flag
-  triggers on a synthetic junit with a passing former-xfail.
+  registry: the release page lists the registry plus the release test run;
+  the nightly page renders the last nightly junit runs; the upstream-fixed
+  flag triggers on a synthetic junit with a passing former-xfail.
 
 ## Sequencing
 
 | Item | Effort | Notes |
 |---|---|---|
-| A1 | **done** (2026-09-22) | `pages/build_site.py`: index + release page (10 fixes, 35 quirks) + nightly page (curated + canary junit, upstream-fixed flag vs `reports/junit.previous.xml`) + sphinx copy |
+| A1 | **done** (2026-09-22) | `pages/build_site.py`: index + release page (registry + release test run) + nightly page (nightly curated + canary junit, upstream-fixed flag vs `reports/junit-nightly.previous.xml`) + sphinx copy |
 | A2 | **done** | `make gh-pages` builds the site into `gh-pages/` |
 | A4 | **done** | `tests/test_pages.py` (3 tests incl. the synthetic previous-junit flag) |
-| A3 | ~30 min | CI plan edits; no workflow files until CI is implemented |
+| A3 | **done** (plan edits) | CI plan wiring in `docs/TODO-ci-plan.md` (pages section, outputs table, previous-junit handoff); workflow files pending |
 
 ## Open questions
 
@@ -113,5 +131,6 @@ repo:
       tracking issue or just links to it (see `docs/TODO-schemathesis.md`
       findings-disposition decision).
 
-*Status: A1/A2/A4 delivered (2026-09-22); A3 (CI wiring) remains — the
-open questions are still open.*
+*Status: A1/A2/A4 delivered (2026-09-22); A3 plan wiring delivered
+(2026-09-22); workflow files added (2026-09-22), not yet run on GitHub
+Actions; the open questions are still open.*
