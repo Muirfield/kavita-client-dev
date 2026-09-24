@@ -75,10 +75,17 @@ dist/kavita-client-$(KAVITA_VERSION).zip: \
 	./pys.sh -m build --sdist --wheel --outdir dist \
 		$(KAVITA_VERSION)-fixed/kavita-client
 	rm -f $@
-	( cd dist && ../pys.sh -m zipfile -c \
-		kavita-client-$(KAVITA_VERSION).zip \
-		kavita_client-$(KAVITA_VERSION)-*.whl \
-		kavita_client-$(KAVITA_VERSION).tar.gz )
+	( \
+		t=$$(mktemp -d) ; \
+		tar -zxf dist/kavita_client-$(KAVITA_VERSION).tar.gz -C "$$t" ; \
+		d=$$(readlink -f dist) ; \
+		cd "$$t" ; \
+		zip "$$d/kavita-client-$(KAVITA_VERSION).zip" -r * ; \
+	)
+#~ 	( cd dist && ../pys.sh -m zipfile -c \
+#~ 		kavita-client-$(KAVITA_VERSION).zip \
+#~ 		kavita_client-$(KAVITA_VERSION)-*.whl \
+#~ 		kavita_client-$(KAVITA_VERSION).tar.gz )
 
 package: build dist/kavita-client-$(KAVITA_VERSION).zip	## Build wheel + sdist + release zip
 

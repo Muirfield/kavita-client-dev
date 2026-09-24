@@ -91,6 +91,8 @@ jobs:
           tag_name: ${{ github.ref_name }}
           files: |
             dist/kavita-client-${{ steps.resolve.outputs.version }}.zip
+            dist/kavita-client-${{ steps.resolve.outputs.version }}.tar.gz
+            dist/kavita-client-${{ steps.resolve.outputs.version }}-py3-none-any.whl
             docs.zip
           body: |
             Verified against: `${{ steps.image.outputs.digest }}`
