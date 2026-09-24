@@ -82,7 +82,7 @@ jobs:
       - name: Build API docs (docs.zip)
         run: |
           make sphinx-html
-          (cd sphinx/_build/html && zip -qr ../../docs.zip .)
+          (cd sphinx/_build/html && zip -qr ../../../dist/docs.zip .)
 
       - name: artifacts
         run: |
@@ -97,7 +97,7 @@ jobs:
             dist/kavita-client-${{ steps.resolve.outputs.version }}.zip
             dist/kavita-client-${{ steps.resolve.outputs.version }}.tar.gz
             dist/kavita-client-${{ steps.resolve.outputs.version }}-py3-none-any.whl
-            docs.zip
+            dist/docs.zip
           body: |
             Verified against: `${{ steps.image.outputs.digest }}`
 
